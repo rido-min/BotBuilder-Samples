@@ -5,11 +5,12 @@
 
 const path = require('path');
 
-// Read botFilePath and botFileSecret from .env file.
+const dotenv = require('dotenv');
+// Import required bot configuration.
 const ENV_FILE = path.join(__dirname, '.env');
-require('dotenv').config({ path: ENV_FILE });
+dotenv.config({ path: ENV_FILE });
 
-const restify = require('restify');
+const express = require('express');
 
 // Import required bot services.
 // See https://aka.ms/bot-services to learn more about the different parts of a bot.
@@ -20,13 +21,24 @@ const {
 
 const { SuggestedActionsBot } = require('./bots/suggestedActionsBot');
 
+// Create HTTP server
+const server = express();
+server.use(express.json());
+
+server.listen(process.env.port || process.env.PORT || 3978, () => {
+    console.log(`\n${ server.name } listening to ${ 3978 }`);
+    console.log('\nGet Bot Framework Emulator: https://aka.ms/botframework-emulator');
+    console.log('\nTo talk to your bot, open the emulator select "Open Bot"');
+});
+
+// @ts-ignore
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(process.env);
 
 // Create adapter. See https://aka.ms/about-bot-adapter to learn more about adapters.
 const adapter = new CloudAdapter(botFrameworkAuthentication);
 
 // Catch-all for errors.
-adapter.onTurnError = async (context, error) => {
+const onTurnErrorHandler = async (context, error) => {
     // This check writes out errors to console log .vs. app insights.
     // NOTE: In production environment, you should consider logging this to Azure
     //       application insights. See https://aka.ms/bottelemetry for telemetry
@@ -46,20 +58,23 @@ adapter.onTurnError = async (context, error) => {
     await context.sendActivity('To continue to run this bot, please fix the bot source code.');
 };
 
+// Set the onTurnError for the singleton CloudAdapter.
+adapter.onTurnError = onTurnErrorHandler;
+
 const bot = new SuggestedActionsBot();
-
-// Create HTTP server
-const server = restify.createServer();
-server.use(restify.plugins.bodyParser());
-
-server.listen(process.env.port || process.env.PORT || 3978, function() {
-    console.log(`\n${ server.name } listening to ${ server.url }`);
-    console.log('\nGet Bot Framework Emulator: https://aka.ms/botframework-emulator');
-    console.log('\nTo talk to your bot, open the emulator select "Open Bot"');
-});
 
 // Listen for incoming requests.
 server.post('/api/messages', async (req, res) => {
     // Route received a request to adapter for processing
     await adapter.process(req, res, (context) => bot.run(context));
+});
+
+// Listen for Upgrade requests for Streaming.
+server.on('upgrade', async (req, socket, head) => {
+    // Create an adapter scoped to this WebSocket connection to allow storing session data.
+    const streamingAdapter = new CloudAdapter(botFrameworkAuthentication);
+    // Set onTurnError for the CloudAdapter created for each connection.
+    streamingAdapter.onTurnError = onTurnErrorHandler;
+
+    await streamingAdapter.process(req, socket, head, (context) => bot.run(context));
 });

@@ -17,11 +17,11 @@
     },
     "dependencies": {
         "@microsoft/microsoft-graph-client": "~2.0.0",
-        "botbuilder": "~4.23.0",
-        "botbuilder-dialogs": "~4.23.0",
+        "botbuilder": "~4.23.3-dev",
+        "botbuilder-dialogs": "~4.23.3-dev",
         "dotenv": "^8.2.0",
         "isomorphic-fetch": "^3.0.0",
-        "restify": "~10.0.0"
+        "express": "~5.0.1"
     },
     "devDependencies": {
         "eslint": "^7.0.0",
