@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import * as restify from 'restify';
+import express from 'express';
 
 // Import required bot services.
 // See https://aka.ms/bot-services to learn more about the different parts of a bot.
@@ -17,13 +17,14 @@ import {
 import { WelcomeBot } from './bot';
 
 // Create HTTP server.
-const server = restify.createServer();
-server.use(restify.plugins.bodyParser());
+const server = express();
+server.use(express.json());
 
 server.listen(process.env.port || process.env.PORT || 3978, () => {
-    console.log(`\n${ server.name } listening to ${ server.url }`);
+    console.log(`\n${ server.name } listening to ${ 3978 }`);
 });
 
+// @ts-ignore
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(process.env as ConfigurationBotFrameworkAuthenticationOptions);
 
 // Create adapter.
@@ -63,7 +64,7 @@ const userState = new UserState(memoryStorage);
 const myBot = new WelcomeBot(userState);
 
 // Listen for incoming requests.
-server.post('/api/messages', (req, res, next) => {
+server.post('/api/messages', async (req, res) => {
     // Route received a request to adapter for processing
-    adapter.process(req, res, async (context) => await myBot.run(context));
+    await adapter.process(req, res, async (context) => await myBot.run(context));
 });

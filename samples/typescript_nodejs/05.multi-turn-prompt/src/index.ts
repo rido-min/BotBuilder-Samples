@@ -3,7 +3,7 @@
 
 import { config } from 'dotenv';
 import * as path from 'path';
-import * as restify from 'restify';
+import express from 'express';
 
 // Import required bot services.
 // See https://aka.ms/bot-services to learn more about the different parts of a bot.
@@ -24,6 +24,7 @@ import { UserProfileDialog } from './dialogs/userProfileDialog';
 const ENV_FILE = path.join(__dirname, '.env');
 config({ path: ENV_FILE });
 
+// @ts-ignore
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(process.env as ConfigurationBotFrameworkAuthenticationOptions);
 
 // Create the adapter. See https://aka.ms/about-bot-adapter to learn more about using information from
@@ -66,17 +67,17 @@ const dialog = new UserProfileDialog(userState);
 const bot = new DialogBot(conversationState, userState, dialog);
 
 // Create HTTP server.
-const server = restify.createServer();
-server.use(restify.plugins.bodyParser());
+const server = express();
+server.use(express.json());
 
 server.listen(process.env.port || process.env.PORT || 3978, () => {
-    console.log(`\n${ server.name } listening to ${ server.url }.`);
+    console.log(`\n${ server.name } listening to ${ 3978 }.`);
     console.log('\nGet Bot Framework Emulator: https://aka.ms/botframework-emulator');
     console.log('\nTo talk to your bot, open the emulator select "Open Bot"');
 });
 
 // Listen for incoming requests.
-server.post('/api/messages', (req, res, next) => {
+server.post('/api/messages', async (req, res) => {
     // Route received a request to adapter for processing
-    adapter.process(req, res, async (context) => await bot.run(context));
+    await adapter.process(req, res, async (context) => await bot.run(context));
 });

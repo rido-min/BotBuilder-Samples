@@ -3,7 +3,8 @@
 
 import { config } from 'dotenv';
 import * as path from 'path';
-import * as restify from 'restify';
+import express from 'express';
+import * as http from 'http';
 
 import { INodeSocket } from 'botframework-streaming';
 
@@ -22,17 +23,19 @@ const ENV_FILE = path.join(__dirname, '..', '.env');
 config({ path: ENV_FILE });
 
 // Create HTTP server.
-const server = restify.createServer();
-server.listen(process.env.port || process.env.PORT || 3978, () => {
-    console.log(`\n${ server.name } listening to ${ server.url }`);
+const app = express();
+const port = process.env.port || process.env.PORT || 3978;
+const server = http.createServer(app);
+
+app.use(express.json());
+
+server.listen(port, () => {
+    console.log(`\nServer listening on port ${port}`);
     console.log('\nGet Bot Framework Emulator: https://aka.ms/botframework-emulator');
     console.log('\nTo talk to your bot, open the emulator select "Open Bot"');
 });
 
-server.use(restify.plugins.bodyParser({
-    mapParams: true
-}));
-
+// @ts-ignore
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(process.env as ConfigurationBotFrameworkAuthenticationOptions);
 
 // Create adapter.
@@ -67,13 +70,13 @@ const conversationReferences = {};
 const myBot = new EchoBot(conversationReferences);
 
 // Listen for incoming requests.
-server.post('/api/messages', (req, res, next) => {
+app.post('/api/messages', async (req, res) => {
     // Route received a request to adapter for processing
-    adapter.process(req, res, async (context) => await myBot.run(context));
+    await adapter.process(req, res, async (context) => await myBot.run(context));
 });
 
 // Listen for Upgrade requests for Streaming.
-server.on('upgrade', async (req, socket, head) => {
+(server as any).on('upgrade', async (req: any, socket: any, head: any) => {
     // Create an adapter scoped to this WebSocket connection to allow storing session data.
     const streamingAdapter = new CloudAdapter(botFrameworkAuthentication);
 
@@ -84,7 +87,7 @@ server.on('upgrade', async (req, socket, head) => {
 });
 
 // Listen for incoming notifications and send proactive messages to users.
-server.get('/api/notify', (req, res, next) => {
+app.get('/api/notify', (req, res, next) => {
     for (const conversationReference of Object.values(conversationReferences)) {
         adapter.continueConversationAsync(process.env.MicrosoftAppId, conversationReference, async (context) => {
             await context.sendActivity('proactive hello');
@@ -97,7 +100,7 @@ server.get('/api/notify', (req, res, next) => {
 });
 
 // Listen for incoming custom notifications and send proactive messages to users.
-server.post('/api/notify', (req, res, next) => {
+app.post('/api/notify', (req, res, next) => {
     for (const msg of req.body) {
         for (const conversationReference of Object.values(conversationReferences)) {
             adapter.continueConversationAsync(process.env.MicrosoftAppId, conversationReference, async (turnContext) => {
